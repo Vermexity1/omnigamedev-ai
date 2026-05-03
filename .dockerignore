@@ -1,0 +1,11 @@
+.venv
+.logs
+.memory
+projects
+ide/frontend/node_modules
+ide/frontend/dist
+__pycache__
+*.pyc
+*.log
+.git
+.vercel

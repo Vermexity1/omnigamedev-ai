@@ -1,0 +1,68 @@
+{
+  "request": "build a C++ roguelike dungeon simulation",
+  "project_name": "c-roguelike-dungeon-simulation",
+  "engine": "Basic C++ Engine",
+  "language": "C++",
+  "framework": "CMake",
+  "game_type": "dungeon crawler",
+  "modules": [
+    "project bootstrap",
+    "game loop",
+    "player controller",
+    "input manager",
+    "collision system",
+    "HUD",
+    "level loader",
+    "procedural dungeon map",
+    "menu system",
+    "enemy AI",
+    "boss encounter system"
+  ],
+  "systems": [
+    "rendering",
+    "physics-lite movement",
+    "state management",
+    "runtime smoke test",
+    "AI steering",
+    "combat resolution"
+  ],
+  "assets": [
+    "placeholder player material",
+    "placeholder enemy material",
+    "placeholder environment tiles",
+    "asset manifest",
+    "room and corridor tiles",
+    "settings panel",
+    "boss placeholder model",
+    "dungeon wall texture"
+  ],
+  "dependencies": {
+    "runtime": [
+      "c++17 compiler",
+      "cmake >= 3.16"
+    ],
+    "development": [
+      "g++ or clang++",
+      "cmake"
+    ]
+  },
+  "commands": {
+    "build": "cmake -S . -B build && cmake --build build",
+    "smoke": "python tools/smoke.py"
+  },
+  "acceptance_tests": [
+    "Project files are generated inside projects/<project_name>.",
+    "A smoke test command completes without crashing.",
+    "Generated source contains a playable loop or engine-ready scripts.",
+    "Project manifest records the plan, adapter, and generated files."
+  ],
+  "risks": [
+    "Full commercial engines such as Unity and Unreal require local editor installations.",
+    "Generated browser projects need npm install before Vite dev serving."
+  ],
+  "metadata": {
+    "planner": "heuristic-v1",
+    "memory_used": true,
+    "supports_self_heal": true
+  }
+}

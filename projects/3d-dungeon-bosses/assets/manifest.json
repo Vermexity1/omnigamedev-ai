@@ -1,0 +1,22 @@
+{
+  "generated_by": "OmniGameDev AI",
+  "project": "3d-dungeon-bosses",
+  "assets": [
+    "placeholder player material",
+    "placeholder enemy material",
+    "placeholder environment tiles",
+    "asset manifest",
+    "room and corridor tiles",
+    "boss placeholder model",
+    "dungeon wall texture"
+  ],
+  "palette": {
+    "player": "#5eead4",
+    "enemy": "#f97316",
+    "boss": "#ef4444",
+    "floor": "#2f3a3d",
+    "wall": "#7c6f64",
+    "accent": "#facc15"
+  },
+  "note": "These placeholders are intentionally simple and safe to replace with production art."
+}

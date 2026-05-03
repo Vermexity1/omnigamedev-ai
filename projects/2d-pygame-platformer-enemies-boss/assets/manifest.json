@@ -1,0 +1,24 @@
+{
+  "generated_by": "OmniGameDev AI",
+  "project": "2d-pygame-platformer-enemies-boss",
+  "assets": [
+    "placeholder player material",
+    "placeholder enemy material",
+    "placeholder environment tiles",
+    "asset manifest",
+    "boss arena markers",
+    "platform collision",
+    "settings panel",
+    "boss placeholder model",
+    "dungeon wall texture"
+  ],
+  "palette": {
+    "player": "#5eead4",
+    "enemy": "#f97316",
+    "boss": "#ef4444",
+    "floor": "#2f3a3d",
+    "wall": "#7c6f64",
+    "accent": "#facc15"
+  },
+  "note": "These placeholders are intentionally simple and safe to replace with production art."
+}

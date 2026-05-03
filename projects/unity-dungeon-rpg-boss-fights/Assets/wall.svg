@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect width="256" height="256" fill="#7c6f64"/>
+  <path d="M0 64H256M0 128H256M0 192H256M64 0V256M128 0V256M192 0V256" stroke="#27221d" stroke-width="8"/>
+  <text x="128" y="142" font-family="Arial, sans-serif" font-size="28" text-anchor="middle" fill="#ffffff">WALL</text>
+</svg>

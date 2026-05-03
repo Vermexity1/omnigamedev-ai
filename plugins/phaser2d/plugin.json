@@ -1,0 +1,14 @@
+{
+  "name": "Phaser 2D",
+  "language": "JavaScript",
+  "engine": "Phaser",
+  "version": "0.1.0",
+  "description": "Example plugin manifest for future Phaser 2D browser game generation.",
+  "entrypoint": "adapter.py",
+  "capabilities": [
+    "2D arcade templates",
+    "sprite placeholders",
+    "browser preview",
+    "JavaScript smoke tests"
+  ]
+}

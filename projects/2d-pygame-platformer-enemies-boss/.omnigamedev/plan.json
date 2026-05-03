@@ -1,0 +1,71 @@
+{
+  "request": "build a 2D pygame platformer with enemies and a boss",
+  "project_name": "2d-pygame-platformer-enemies-boss",
+  "engine": "Pygame",
+  "language": "Python",
+  "framework": "Pygame",
+  "game_type": "platformer",
+  "modules": [
+    "project bootstrap",
+    "game loop",
+    "player controller",
+    "input manager",
+    "collision system",
+    "HUD",
+    "level loader",
+    "boss encounter system",
+    "jump controller",
+    "menu system",
+    "enemy AI",
+    "procedural dungeon map"
+  ],
+  "systems": [
+    "rendering",
+    "physics-lite movement",
+    "state management",
+    "runtime smoke test",
+    "AI steering",
+    "combat resolution"
+  ],
+  "assets": [
+    "placeholder player material",
+    "placeholder enemy material",
+    "placeholder environment tiles",
+    "asset manifest",
+    "boss arena markers",
+    "platform collision",
+    "settings panel",
+    "boss placeholder model",
+    "dungeon wall texture"
+  ],
+  "dependencies": {
+    "runtime": [
+      "python >= 3.10",
+      "pygame >= 2.5"
+    ],
+    "development": [
+      "pip",
+      "venv"
+    ]
+  },
+  "commands": {
+    "install": "pip install -r requirements.txt",
+    "run": "python main.py",
+    "smoke": "python main.py --smoke"
+  },
+  "acceptance_tests": [
+    "Project files are generated inside projects/<project_name>.",
+    "A smoke test command completes without crashing.",
+    "Generated source contains a playable loop or engine-ready scripts.",
+    "Project manifest records the plan, adapter, and generated files."
+  ],
+  "risks": [
+    "Full commercial engines such as Unity and Unreal require local editor installations.",
+    "Generated browser projects need npm install before Vite dev serving."
+  ],
+  "metadata": {
+    "planner": "heuristic-v1",
+    "memory_used": true,
+    "supports_self_heal": true
+  }
+}

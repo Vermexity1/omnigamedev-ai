@@ -1,0 +1,75 @@
+{
+  "schema": "omnigamedev.project.v1",
+  "plan": {
+    "request": "build a Unity dungeon RPG with boss fights",
+    "project_name": "unity-dungeon-rpg-boss-fights",
+    "engine": "Unity",
+    "language": "C#",
+    "framework": "Unity",
+    "game_type": "dungeon crawler",
+    "modules": [
+      "project bootstrap",
+      "game loop",
+      "player controller",
+      "input manager",
+      "collision system",
+      "HUD",
+      "level loader",
+      "boss encounter system",
+      "procedural dungeon map",
+      "inventory shell",
+      "menu system",
+      "enemy AI"
+    ],
+    "systems": [
+      "rendering",
+      "physics-lite movement",
+      "state management",
+      "runtime smoke test",
+      "AI steering",
+      "combat resolution"
+    ],
+    "assets": [
+      "placeholder player material",
+      "placeholder enemy material",
+      "placeholder environment tiles",
+      "asset manifest",
+      "boss arena markers",
+      "room and corridor tiles",
+      "dialogue data",
+      "settings panel",
+      "boss placeholder model",
+      "dungeon wall texture"
+    ],
+    "dependencies": {
+      "runtime": [
+        "Unity 2022 LTS or newer"
+      ],
+      "development": [
+        "Unity Editor",
+        "Visual Studio or Rider"
+      ]
+    },
+    "commands": {
+      "run": "Open the generated folder as a Unity project.",
+      "smoke": "python -m compileall Assets"
+    },
+    "acceptance_tests": [
+      "Project files are generated inside projects/<project_name>.",
+      "A smoke test command completes without crashing.",
+      "Generated source contains a playable loop or engine-ready scripts.",
+      "Project manifest records the plan, adapter, and generated files."
+    ],
+    "risks": [
+      "Full commercial engines such as Unity and Unreal require local editor installations.",
+      "Generated browser projects need npm install before Vite dev serving."
+    ],
+    "metadata": {
+      "planner": "heuristic-v1",
+      "memory_used": true,
+      "supports_self_heal": true
+    }
+  },
+  "adapter": "CSharpAdapter",
+  "generated_file_count": 11
+}
