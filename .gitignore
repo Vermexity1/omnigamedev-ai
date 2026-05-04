@@ -12,8 +12,9 @@ dist/
 build/
 *.log
 tools/cloudflared.exe
+projects/*
+!projects/.gitkeep
 projects/*/node_modules/
 projects/*/build/
 projects/*/dist/
 projects/*/.venv/
-!projects/.gitkeep

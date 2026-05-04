@@ -110,8 +110,8 @@ class OmniGameDevAgent:
         )
 
     def _seed_memory_once(self) -> None:
-        training = self.root / "training_context.md"
-        self.memory.seed_from_markdown(training)
+        for training in (self.root / "training_context.md", self.root / "game_agent_training_catalog.md"):
+            self.memory.seed_from_markdown(training)
         self._seed_urls_from_env()
 
     def _seed_urls_from_env(self) -> None:

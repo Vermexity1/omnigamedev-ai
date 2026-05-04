@@ -39,6 +39,26 @@ class ProjectCodeAssistant:
     """Codex-like project helper for review, deterministic improvement, and file edits."""
 
     text_extensions = {".py", ".js", ".jsx", ".ts", ".tsx", ".css", ".html", ".json", ".md", ".cs", ".cpp", ".h", ".hpp"}
+    color_words = {
+        "green": "0x22c55e",
+        "lime": "0x84cc16",
+        "emerald": "0x10b981",
+        "red": "0xef4444",
+        "blue": "0x3b82f6",
+        "cyan": "0x06b6d4",
+        "teal": "0x14b8a6",
+        "purple": "0x8b5cf6",
+        "violet": "0x7c3aed",
+        "pink": "0xec4899",
+        "orange": "0xf97316",
+        "yellow": "0xfacc15",
+        "gold": "0xf59e0b",
+        "white": "0xf8fafc",
+        "black": "0x020617",
+        "gray": "0x64748b",
+        "grey": "0x64748b",
+        "brown": "0x854d0e",
+    }
 
     def __init__(self, llm: LLMProvider | None = None, memory: MemoryStore | None = None) -> None:
         self.llm = llm or NullLLMProvider()
@@ -89,6 +109,45 @@ class ProjectCodeAssistant:
         review.message = "No deterministic project improver exists for this engine yet; review results are shown instead."
         return review
 
+    def edit_project(
+        self,
+        project_path: Path,
+        plan: ProjectPlan,
+        instruction: str,
+        selected_path: str | None = None,
+        current_content: str | None = None,
+    ) -> CodeActionResult:
+        """Apply a project-level feature request to the right implementation files.
+
+        This is intentionally tried before selected-file editing because users often
+        describe game behavior while a README or asset is selected.
+        """
+
+        if selected_path and current_content is not None:
+            target = (project_path / selected_path).resolve()
+            if target.exists() and target.suffix in self.text_extensions:
+                target.write_text(current_content, encoding="utf-8")
+
+        lowered = instruction.lower()
+        if plan.language == "JavaScript" and (project_path / "src" / "main.js").exists():
+            result = self._edit_three_js_project(project_path, lowered)
+            if result.changed_files:
+                self._remember(f"Applied Three.js semantic edit: {instruction}; changed {', '.join(result.changed_files)}")
+                return result
+
+        if plan.language == "Python" and (project_path / "main.py").exists():
+            result = self._edit_python_project(project_path, lowered)
+            if result.changed_files:
+                self._remember(f"Applied Python semantic edit: {instruction}; changed {', '.join(result.changed_files)}")
+                return result
+
+        if selected_path:
+            return self.edit_file(project_path, selected_path, instruction, current_content)
+        return CodeActionResult(
+            "No project-level edit rule matched that request. I need a more specific gameplay target or file selection.",
+            notes=["Reviewed the project plan and source tree before declining the edit."],
+        )
+
     def edit_file(self, project_path: Path, relative_path: str, instruction: str, current_content: str | None = None) -> CodeActionResult:
         target = (project_path / relative_path).resolve()
         if not target.exists() or target.suffix not in self.text_extensions:
@@ -136,6 +195,211 @@ class ProjectCodeAssistant:
         if relative_path.endswith(".css") and any(word in lowered for word in ["button", "text", "fit", "layout"]):
             return content + "\nbutton { min-width: 0; }\n"
         return content
+
+    def _edit_three_js_project(self, project_path: Path, lowered: str) -> CodeActionResult:
+        main_path = project_path / "src" / "main.js"
+        style_path = project_path / "src" / "style.css"
+        main = main_path.read_text(encoding="utf-8")
+        style = style_path.read_text(encoding="utf-8") if style_path.exists() else ""
+        changed: list[str] = []
+        notes: list[str] = []
+
+        color = self._requested_color(lowered)
+        material_target = self._material_target(lowered)
+        if color and material_target:
+            main, did_change = self._set_three_material(main, material_target, color)
+            if did_change:
+                changed.append("src/main.js")
+                notes.append(f"Changed the {material_target} material color to {color}.")
+
+        if any(phrase in lowered for phrase in ["first person", "first-person", "fps", "camera view", "player view", "through the player"]):
+            main, did_change = self._apply_first_person_three_js(main)
+            if did_change:
+                changed.append("src/main.js")
+                notes.append("Changed camera, mouse-look, and WASD movement to first-person controls.")
+                if "Click preview to look" not in style:
+                    style += "\ncanvas { cursor: crosshair; }\n"
+                    changed.append("src/style.css")
+
+        speed = self._requested_speed(lowered)
+        if speed is not None:
+            main, did_change = re.subn(r"const player = new Combatant\(playerMesh, 100, [0-9.]+\);", f"const player = new Combatant(playerMesh, 100, {speed});", main, count=1)
+            if did_change:
+                changed.append("src/main.js")
+                notes.append(f"Changed player movement speed to {speed}.")
+
+        if any(word in lowered for word in ["brighter", "brighten", "more light", "lighter"]):
+            main, did_change = re.subn(r"new THREE\.HemisphereLight\((0x[0-9a-fA-F]+), (0x[0-9a-fA-F]+), [0-9.]+\)", r"new THREE.HemisphereLight(\1, \2, 1.8)", main, count=1)
+            if did_change:
+                changed.append("src/main.js")
+                notes.append("Increased ambient hemisphere light intensity.")
+
+        if any(word in lowered for word in ["darker", "darken", "scarier", "spooky"]):
+            main, did_change = re.subn(r"scene\.fog = new THREE\.Fog\((0x[0-9a-fA-F]+), [0-9.]+, [0-9.]+\);", r"scene.fog = new THREE.Fog(\1, 6, 24);", main, count=1)
+            if did_change:
+                changed.append("src/main.js")
+                notes.append("Moved fog closer for a darker dungeon atmosphere.")
+
+        if not changed:
+            return CodeActionResult("No Three.js semantic edit matched that instruction.")
+
+        main_path.write_text(main, encoding="utf-8")
+        if style_path.exists() or "src/style.css" in changed:
+            style_path.write_text(style, encoding="utf-8")
+        return CodeActionResult(
+            "Applied gameplay-aware Three.js code changes.",
+            changed_files=sorted(set(changed)),
+            notes=notes,
+        )
+
+    def _edit_python_project(self, project_path: Path, lowered: str) -> CodeActionResult:
+        main_path = project_path / "main.py"
+        text = main_path.read_text(encoding="utf-8")
+        changed = False
+        notes: list[str] = []
+
+        color = self._requested_rgb(lowered)
+        if color and any(word in lowered for word in ["wall", "walls", "block", "blocks"]):
+            text, count = re.subn(r"pygame\.draw\.rect\(screen, \([0-9,\s]+\), wall\)", f"pygame.draw.rect(screen, {color}, wall)", text)
+            changed = changed or bool(count)
+            if count:
+                notes.append(f"Changed Pygame wall draw color to {color}.")
+
+        speed = self._requested_speed(lowered)
+        if speed is not None:
+            text, count = re.subn(r"player = Actor\(pygame\.Rect\(0, 0, 30, 30\), 100, [0-9.]+,", f"player = Actor(pygame.Rect(0, 0, 30, 30), 100, {speed * 45:.0f},", text)
+            changed = changed or bool(count)
+            if count:
+                notes.append("Changed Pygame player movement speed.")
+
+        if not changed:
+            return CodeActionResult("No Pygame semantic edit matched that instruction.")
+        main_path.write_text(text, encoding="utf-8")
+        return CodeActionResult("Applied gameplay-aware Pygame code changes.", changed_files=["main.py"], notes=notes)
+
+    def _set_three_material(self, main: str, target: str, color: str) -> tuple[str, bool]:
+        variable = {
+            "wall": "wallMaterial",
+            "floor": "floorMaterial",
+            "enemy": "enemyMaterial",
+            "boss": "bossMaterial",
+            "player": "player",
+            "background": "background",
+            "sky": "background",
+            "fog": "fog",
+        }[target]
+        if target == "player":
+            updated, count = re.subn(r"new THREE\.CapsuleGeometry\(([^)]+)\), material\(0x[0-9a-fA-F]+\)", rf"new THREE.CapsuleGeometry(\1), material({color})", main, count=1)
+            return updated, bool(count)
+        if target in {"background", "sky"}:
+            updated, count = re.subn(r"scene\.background = new THREE\.Color\(0x[0-9a-fA-F]+\);", f"scene.background = new THREE.Color({color});", main, count=1)
+            return updated, bool(count)
+        if target == "fog":
+            updated, count = re.subn(r"scene\.fog = new THREE\.Fog\(0x[0-9a-fA-F]+,", f"scene.fog = new THREE.Fog({color},", main, count=1)
+            return updated, bool(count)
+        updated, count = re.subn(rf"const {variable} = material\(0x[0-9a-fA-F]+", f"const {variable} = material({color}", main, count=1)
+        return updated, bool(count)
+
+    def _apply_first_person_three_js(self, main: str) -> tuple[str, bool]:
+        changed = False
+        if "const pointer = { yaw: 0, pitch: 0 };" not in main:
+            main = main.replace("const clock = new THREE.Clock();", "const clock = new THREE.Clock();\nconst pointer = { yaw: 0, pitch: 0 };")
+            changed = True
+
+        first_person_camera = """function updateCamera(camera, player) {
+  const target = player.mesh.position;
+  camera.position.lerp(new THREE.Vector3(target.x, 1.55, target.z), 0.35);
+  camera.rotation.order = "YXZ";
+  camera.rotation.y = pointer.yaw;
+  camera.rotation.x = pointer.pitch;
+  player.mesh.visible = false;
+}
+"""
+        main, count = re.subn(r"function updateCamera\(camera, player\) \{[\s\S]*?\n\}\n\nfunction moveWithCollision", first_person_camera + "\nfunction moveWithCollision", main, count=1)
+        changed = changed or bool(count)
+
+        first_person_player = """function updatePlayer(player, walls, delta) {
+  const forward = new THREE.Vector3(-Math.sin(pointer.yaw), 0, -Math.cos(pointer.yaw));
+  const right = new THREE.Vector3(Math.cos(pointer.yaw), 0, -Math.sin(pointer.yaw));
+  const direction = new THREE.Vector3();
+  if (keys.has("KeyW") || keys.has("ArrowUp")) direction.add(forward);
+  if (keys.has("KeyS") || keys.has("ArrowDown")) direction.sub(forward);
+  if (keys.has("KeyA") || keys.has("ArrowLeft")) direction.sub(right);
+  if (keys.has("KeyD") || keys.has("ArrowRight")) direction.add(right);
+  if (direction.length() > 0) {
+    direction.normalize().multiplyScalar(player.speed * delta);
+    moveWithCollision(player, direction, walls);
+  }
+  player.mesh.rotation.y = pointer.yaw;
+}
+"""
+        main, count = re.subn(r"function updatePlayer\(player, walls, delta\) \{[\s\S]*?\n\}\n\nfunction attack", first_person_player + "\nfunction attack", main, count=1)
+        changed = changed or bool(count)
+
+        if "function handleMouseLook" not in main:
+            mouse_code = """function handleMouseLook(event) {
+  if (document.pointerLockElement === event.currentTarget || document.pointerLockElement) {
+    pointer.yaw -= event.movementX * 0.0022;
+    pointer.pitch = Math.max(-1.2, Math.min(1.2, pointer.pitch - event.movementY * 0.002));
+  }
+}
+
+"""
+            main = main.replace("export function createGame", mouse_code + "export function createGame")
+            changed = True
+
+        if "renderer.domElement.requestPointerLock" not in main:
+            main = main.replace(
+                "  window.addEventListener(\"resize\", resize);\n",
+                "  window.addEventListener(\"resize\", resize);\n"
+                "  renderer.domElement.addEventListener(\"click\", () => renderer.domElement.requestPointerLock());\n"
+                "  window.addEventListener(\"mousemove\", handleMouseLook);\n",
+            )
+            changed = True
+
+        main = main.replace("Explore the dungeon", "Click preview to look; WASD move, Space attack")
+        return main, changed
+
+    def _requested_color(self, lowered: str) -> str | None:
+        explicit_hex = re.search(r"(?:#|0x)([0-9a-fA-F]{6})", lowered)
+        if explicit_hex:
+            return f"0x{explicit_hex.group(1)}"
+        for word, value in self.color_words.items():
+            if re.search(rf"\b{re.escape(word)}\b", lowered):
+                return value
+        return None
+
+    def _requested_rgb(self, lowered: str) -> str | None:
+        color = self._requested_color(lowered)
+        if not color:
+            return None
+        value = int(color, 16)
+        return f"({(value >> 16) & 255}, {(value >> 8) & 255}, {value & 255})"
+
+    def _material_target(self, lowered: str) -> str | None:
+        targets = {
+            "wall": ["wall", "walls", "brick", "bricks", "block", "blocks"],
+            "floor": ["floor", "ground"],
+            "enemy": ["enemy", "enemies", "monster", "monsters"],
+            "boss": ["boss"],
+            "player": ["player", "hero"],
+            "background": ["background", "sky"],
+            "fog": ["fog", "mist"],
+        }
+        for target, words in targets.items():
+            if any(re.search(rf"\b{re.escape(word)}\b", lowered) for word in words):
+                return target
+        return None
+
+    def _requested_speed(self, lowered: str) -> float | None:
+        match = re.search(r"(?:speed|move speed|movement speed)\D+([0-9]+(?:\.[0-9]+)?)", lowered)
+        if match:
+            return max(1.0, min(12.0, float(match.group(1))))
+        if any(word in lowered for word in ["faster", "fast", "quicker", "speed up"]):
+            return 6.2
+        if any(word in lowered for word in ["slower", "slow down"]):
+            return 2.6
+        return None
 
     def _add_file_header(self, relative_path: str, content: str) -> str:
         if relative_path.endswith(".py"):

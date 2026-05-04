@@ -451,16 +451,20 @@ def ai_action(project: str, request: AiActionRequest) -> dict[str, Any]:
         return payload
 
     if not request.path:
-        raise HTTPException(status_code=400, detail="Edit mode requires a selected file path.")
-    target = safe_file(project_path, request.path)
-    if request.content is not None:
-        target.write_text(request.content, encoding="utf-8")
-    result = agent.code_assistant.edit_file(project_path, request.path, request.prompt, request.content)
+        result = agent.code_assistant.edit_project(project_path, plan_data, request.prompt)
+        persist_project(project_path)
+        payload = result.to_dict()
+        payload["tree"] = build_tree(project_path)
+        return payload
+
+    result = agent.code_assistant.edit_project(project_path, plan_data, request.prompt, request.path, request.content)
     persist_project(project_path)
     payload = result.to_dict()
     payload["tree"] = build_tree(project_path)
+    response_path = result.changed_files[0] if result.changed_files else request.path
+    target = safe_file(project_path, response_path)
     if target.exists():
-        payload["file"] = {"path": request.path, "content": target.read_text(encoding="utf-8")}
+        payload["file"] = {"path": response_path, "content": target.read_text(encoding="utf-8")}
     return payload
 
 

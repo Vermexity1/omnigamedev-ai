@@ -2,6 +2,7 @@ import Editor from "@monaco-editor/react";
 import {
   Bot,
   Bug,
+  Code2,
   Download,
   File,
   Folder,
@@ -19,6 +20,7 @@ import {
 import React, { useEffect, useMemo, useState } from "react";
 
 const ENV_API_BASE = import.meta.env.VITE_API_BASE || "";
+const ENV_API_TOKEN = import.meta.env.VITE_API_TOKEN || "";
 const LOCAL_API_BASE = "http://127.0.0.1:8787";
 const LEGACY_API_BASES = new Set(["https://pubs-game-endorsed-seats.trycloudflare.com"]);
 const PRESET_PROMPTS = [
@@ -81,8 +83,8 @@ function getApiBase() {
 }
 
 function getApiToken() {
-  if (typeof window === "undefined") return "";
-  return window.localStorage.getItem("omnigamedev.apiToken") || "";
+  if (typeof window === "undefined") return ENV_API_TOKEN;
+  return window.localStorage.getItem("omnigamedev.apiToken") || ENV_API_TOKEN;
 }
 
 function defaultApiBase() {
@@ -245,6 +247,7 @@ export default function App() {
   const [backendUrl, setBackendUrl] = useState(getApiBase());
   const [backendToken, setBackendToken] = useState(getApiToken());
   const [backendStatus, setBackendStatus] = useState("checking");
+  const [workspaceTab, setWorkspaceTab] = useState("code");
   const [layout, setLayout] = useState(loadLayout);
   const [messages, setMessages] = useState([
     { role: "assistant", content: "OmniGameDev AI is online." },
@@ -531,7 +534,18 @@ export default function App() {
         "--chat-height": `${layout.chatHeight}px`,
       }}
     >
-      <aside className="sidebar">
+      <aside className="sidebar tabMode">
+        <div className="workspaceTabs" role="tablist" aria-label="Workspace sections">
+          <button className={workspaceTab === "code" ? "active" : ""} onClick={() => setWorkspaceTab("code")} type="button">
+            <Code2 size={15} />
+            <span>Code</span>
+          </button>
+          <button className={workspaceTab === "chat" ? "active" : ""} onClick={() => setWorkspaceTab("chat")} type="button">
+            <Bot size={15} />
+            <span>AI Chat</span>
+          </button>
+        </div>
+        {workspaceTab === "code" ? (
         <section className="panel filePanel">
           <div className="panelHeader">
             <div className="brand">
@@ -553,24 +567,6 @@ export default function App() {
                     : "Checking backend"}
             </span>
             <small>{backendUrl || "Enter a public HTTPS backend URL for Vercel"}</small>
-            <div className="backendTokenRow">
-              <input
-                value={backendToken}
-                onChange={(event) => setBackendToken(event.target.value)}
-                placeholder="Backend access code"
-                title="Access code required by public backends"
-                type="password"
-              />
-            </div>
-            <div className="backendUrlRow">
-              <input
-                value={backendUrl}
-                onChange={(event) => setBackendUrl(event.target.value)}
-                placeholder="http://127.0.0.1:8787 or tunnel URL"
-                title="Backend API URL"
-              />
-              <button type="button" onClick={applyBackendUrl}>Use</button>
-            </div>
           </div>
           <select className="projectSelect" value={currentProject} onChange={(event) => openProject(event.target.value)}>
             <option value="">No project</option>
@@ -594,8 +590,7 @@ export default function App() {
           </div>
           <FileTree nodes={tree} selectedPath={selectedFile} onSelect={(path) => openFile(currentProject, path)} />
         </section>
-        <div className="resizeHandle horizontal chatResize" onPointerDown={(event) => startResize("chat", event)} title="Resize AI chat" />
-
+        ) : (
         <section className="panel chatPanel">
           <div className="panelHeader">
             <div className="panelTitle">
@@ -632,13 +627,14 @@ export default function App() {
                 <Wand2 size={16} />
                 <span>Improve</span>
               </button>
-              <button className="iconTextButton" onClick={() => runAiAction("edit")} disabled={busy || !currentProject || !selectedFile} title="Edit selected file using the prompt">
+              <button className="iconTextButton" onClick={() => runAiAction("edit")} disabled={busy || !currentProject} title="Apply the prompt as a code change">
                 <Pencil size={16} />
-                <span>Edit File</span>
+                <span>Apply Change</span>
               </button>
             </div>
           </div>
         </section>
+        )}
       </aside>
       <div className="resizeHandle vertical sidebarResize" onPointerDown={(event) => startResize("sidebar", event)} title="Resize sidebar" />
 
@@ -739,6 +735,11 @@ function formatAiAction(result) {
     lines.push("");
     lines.push("Changed files:");
     result.changed_files.forEach((file) => lines.push(`- ${file}`));
+  }
+  if (result.notes?.length) {
+    lines.push("");
+    lines.push("Implementation notes:");
+    result.notes.forEach((note) => lines.push(`- ${note}`));
   }
   if (result.findings?.length) {
     lines.push("");
