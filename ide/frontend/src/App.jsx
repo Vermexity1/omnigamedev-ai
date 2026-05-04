@@ -52,12 +52,15 @@ async function api(path, options = {}) {
   if (!apiBase) {
     throw new Error("Backend URL is not configured. Enter a public backend URL, or run the local IDE with the backend on port 8787.");
   }
+  const headers = {
+    ...(token ? { "X-OmniGameDev-Token": token } : {}),
+    ...(options.headers || {}),
+  };
+  if (options.body || (options.method && options.method !== "GET")) {
+    headers["Content-Type"] = "application/json";
+  }
   const response = await fetch(`${apiBase}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { "X-OmniGameDev-Token": token } : {}),
-      ...(options.headers || {}),
-    },
+    headers,
     ...options,
   });
   if (!response.ok) {
