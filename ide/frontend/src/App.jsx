@@ -20,6 +20,7 @@ import React, { useEffect, useMemo, useState } from "react";
 
 const ENV_API_BASE = import.meta.env.VITE_API_BASE || "";
 const LOCAL_API_BASE = "http://127.0.0.1:8787";
+const LEGACY_API_BASES = new Set(["https://pubs-game-endorsed-seats.trycloudflare.com"]);
 const PRESET_PROMPTS = [
   { label: "Dungeon", prompt: "build a 3D dungeon game with bosses" },
   { label: "Platformer", prompt: "build a 2D pygame platformer with enemies and a boss" },
@@ -68,7 +69,12 @@ async function api(path, options = {}) {
 
 function getApiBase() {
   if (typeof window === "undefined") return ENV_API_BASE || LOCAL_API_BASE;
-  return window.localStorage.getItem("omnigamedev.apiBase") || defaultApiBase();
+  const saved = window.localStorage.getItem("omnigamedev.apiBase") || "";
+  if (saved && ENV_API_BASE && LEGACY_API_BASES.has(saved)) {
+    window.localStorage.setItem("omnigamedev.apiBase", ENV_API_BASE);
+    return ENV_API_BASE;
+  }
+  return saved || defaultApiBase();
 }
 
 function getApiToken() {
