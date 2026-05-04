@@ -52,8 +52,11 @@ class MemoryStore:
         self.records_path = self.root / "records.jsonl"
         self.backend_name = backend or os.getenv("OMNIGAMEDEV_MEMORY_BACKEND", "local")
         self._chroma_collection = None
+        self._mongo_collection = None
         if self.backend_name == "chroma":
             self._init_chroma()
+        elif self.backend_name == "mongo":
+            self._init_mongo()
 
     def _init_chroma(self) -> None:
         try:
@@ -65,7 +68,29 @@ class MemoryStore:
             self._chroma_collection = None
             self.backend_name = "local"
 
+    def _init_mongo(self) -> None:
+        uri = os.getenv("MONGODB_URI", "").strip()
+        if not uri:
+            self.backend_name = "local"
+            return
+        try:
+            from pymongo import MongoClient  # type: ignore
+
+            client = MongoClient(uri, serverSelectionTimeoutMS=5000)
+            client.admin.command("ping")
+            db = client[os.getenv("MONGODB_DB", "omnigamedev").strip() or "omnigamedev"]
+            self._mongo_collection = db["memory_records"]
+            self._mongo_collection.create_index("created_at")
+        except Exception:
+            self._mongo_collection = None
+            self.backend_name = "local"
+
     def count(self) -> int:
+        if self._mongo_collection is not None:
+            try:
+                return int(self._mongo_collection.count_documents({}))
+            except Exception:
+                pass
         if not self.records_path.exists():
             return 0
         with self.records_path.open("r", encoding="utf-8") as handle:
@@ -93,6 +118,18 @@ class MemoryStore:
                     documents=[record.text],
                     metadatas=[record.metadata],
                 )
+            except Exception:
+                pass
+        if self._mongo_collection is not None:
+            try:
+                payload = {
+                    "_id": record.id,
+                    "id": record.id,
+                    "text": record.text,
+                    "metadata": record.metadata,
+                    "created_at": record.created_at,
+                }
+                self._mongo_collection.replace_one({"_id": record.id}, payload, upsert=True)
             except Exception:
                 pass
         return record
@@ -143,6 +180,14 @@ class MemoryStore:
         return added
 
     def _read_records(self) -> list[MemoryRecord]:
+        if self._mongo_collection is not None:
+            try:
+                return [
+                    MemoryRecord.from_dict(item)
+                    for item in self._mongo_collection.find({}, {"_id": 0, "id": 1, "text": 1, "metadata": 1, "created_at": 1})
+                ]
+            except Exception:
+                pass
         if not self.records_path.exists():
             return []
         records: list[MemoryRecord] = []

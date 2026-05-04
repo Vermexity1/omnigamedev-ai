@@ -124,6 +124,12 @@ https://pubs-game-endorsed-seats.trycloudflare.com
 
 That tunnel stays online only while this computer, the local backend, and `cloudflared` are running. The public backend should use an access code because it can edit and run generated code. Permanent backend hosting instructions are in `PUBLIC_BACKEND_HOSTING.md`.
 
+The Render deployment is configured for free mode with MongoDB persistence:
+
+- Render runs the FastAPI backend from `Dockerfile`.
+- MongoDB stores generated project files and memory records.
+- The backend restores projects from MongoDB into `/tmp` whenever the Render service starts.
+
 To restart the local backend:
 
 ```powershell

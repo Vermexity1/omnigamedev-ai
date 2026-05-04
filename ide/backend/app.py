@@ -25,6 +25,7 @@ from executor import ExecutionEngine  # noqa: E402
 from planner.presets import PRESETS  # noqa: E402
 from planner import ProjectPlan  # noqa: E402
 from plugins import PluginManager  # noqa: E402
+from storage import MongoProjectStore  # noqa: E402
 
 
 app = FastAPI(title="OmniGameDev AI IDE API", version="0.1.0")
@@ -67,6 +68,12 @@ agent = OmniGameDevAgent(ROOT)
 executor = ExecutionEngine()
 PROJECTS_ROOT = agent.projects_root
 PROJECTS_ROOT.mkdir(parents=True, exist_ok=True)
+PROJECT_STORE_ERROR = ""
+try:
+    project_store = MongoProjectStore.from_env()
+except Exception as exc:  # pragma: no cover - depends on deployed environment
+    project_store = None
+    PROJECT_STORE_ERROR = str(exc)
 
 
 class PlanRequest(BaseModel):
@@ -96,8 +103,16 @@ class AiActionRequest(BaseModel):
     content: str | None = None
 
 
+@app.on_event("startup")
+def restore_persisted_projects() -> None:
+    if project_store is not None:
+        project_store.restore_projects(PROJECTS_ROOT)
+
+
 def safe_project(project: str) -> Path:
     path = (PROJECTS_ROOT / project).resolve()
+    if (not path.exists()) and project_store is not None:
+        project_store.restore_project(project, PROJECTS_ROOT)
     if not is_inside(PROJECTS_ROOT.resolve(), path) or not path.exists():
         raise HTTPException(status_code=404, detail="Project not found")
     return path
@@ -154,6 +169,11 @@ def build_tree(project_path: Path) -> list[dict[str, Any]]:
     return [node_for(item) for item in visible]
 
 
+def persist_project(project_path: Path) -> None:
+    if project_store is not None:
+        project_store.save_project(project_path)
+
+
 @app.get("/api/health")
 def health() -> dict[str, Any]:
     return {
@@ -162,6 +182,8 @@ def health() -> dict[str, Any]:
         "projects_root": str(PROJECTS_ROOT),
         "memory_records": agent.memory.count(),
         "auth_required": bool(API_TOKEN),
+        "project_store": "mongodb" if project_store is not None else "filesystem",
+        "project_store_error": PROJECT_STORE_ERROR,
     }
 
 
@@ -184,6 +206,7 @@ def generate(request: GenerateRequest) -> dict[str, Any]:
         install_dependencies=request.install_dependencies,
     )
     project_name = Path(result.generation.project_path).name
+    persist_project(Path(result.generation.project_path))
     return {
         **result.to_dict(),
         "project_name": project_name,
@@ -199,6 +222,7 @@ def open_folder(request: OpenFolderRequest) -> dict[str, Any]:
     ignore = shutil.ignore_patterns(".git", "node_modules", ".venv", "__pycache__", "dist", "build", ".memory", ".logs")
     shutil.copytree(source, target, ignore=ignore)
     ensure_project_manifest(target, source)
+    persist_project(target)
     return {
         "project_name": target.name,
         "project_path": str(target),
@@ -388,6 +412,7 @@ def save_file(project: str, request: SaveFileRequest) -> dict[str, Any]:
     target = safe_file(project_path, request.path)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(request.content, encoding="utf-8")
+    persist_project(project_path)
     return {"ok": True, "path": request.path, "tree": build_tree(project_path)}
 
 
@@ -407,6 +432,7 @@ def ai_action(project: str, request: AiActionRequest) -> dict[str, Any]:
     if request.mode == "improve":
         result = agent.code_assistant.improve_project(project_path, plan_data, request.prompt)
         run_result = executor.run_project(project_path, plan_data)
+        persist_project(project_path)
         payload = result.to_dict()
         payload["execution"] = run_result.to_dict()
         payload["tree"] = build_tree(project_path)
@@ -418,6 +444,7 @@ def ai_action(project: str, request: AiActionRequest) -> dict[str, Any]:
     if request.content is not None:
         target.write_text(request.content, encoding="utf-8")
     result = agent.code_assistant.edit_file(project_path, request.path, request.prompt, request.content)
+    persist_project(project_path)
     payload = result.to_dict()
     payload["tree"] = build_tree(project_path)
     if target.exists():
