@@ -42,18 +42,29 @@ app.add_middleware(
 API_TOKEN = os.getenv("OMNIGAMEDEV_API_TOKEN", "").strip()
 
 
+def browser_cors_headers() -> dict[str, str]:
+    return {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type,X-OmniGameDev-Token,Authorization",
+        "Access-Control-Allow-Private-Network": "true",
+    }
+
+
 @app.middleware("http")
 async def access_token_guard(request: Request, call_next):
     path = request.url.path
     is_preview_asset = request.method == "GET" and path.startswith("/api/projects/") and "/preview" in path
-    if request.method == "OPTIONS" or path == "/api/health" or is_preview_asset or not API_TOKEN:
+    if request.method == "OPTIONS":
+        return Response(status_code=204, headers=browser_cors_headers())
+    if path == "/api/health" or is_preview_asset or not API_TOKEN:
         return await call_next(request)
     supplied = (request.headers.get("x-omnigamedev-token") or request.query_params.get("token") or "").strip()
     if supplied != API_TOKEN:
         return JSONResponse(
             status_code=401,
             content={"detail": "Backend access code required."},
-            headers={"Access-Control-Allow-Origin": "*"},
+            headers=browser_cors_headers(),
         )
     return await call_next(request)
 
@@ -61,7 +72,8 @@ async def access_token_guard(request: Request, call_next):
 @app.middleware("http")
 async def private_network_access_headers(request, call_next):
     response = await call_next(request)
-    response.headers["Access-Control-Allow-Private-Network"] = "true"
+    for key, value in browser_cors_headers().items():
+        response.headers[key] = value
     return response
 
 agent = OmniGameDevAgent(ROOT)
